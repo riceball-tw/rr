@@ -27,8 +27,26 @@ rr/
 ├── request_test.go
 ├── response.go         # envelope + HTTP writers
 ├── response_test.go
+├── examples/
+│   ├── nethttp/        # runnable + unit-tested net/http demo
+│   └── gin/            # separate module (gin dep stays out of rr)
 ├── README.md
 └── .github/workflows/ci.yml
+```
+
+## Demos (runnable + unit-tested)
+
+Small “users API” demos exercise list pagination/sort, get-by-id, create, and
+error envelopes. They are ordinary Go tests (`httptest`), so `go test` is the demo.
+
+```bash
+# stdlib net/http (part of this module — no extra deps)
+go test ./examples/nethttp/ -v
+go run  ./examples/nethttp/          # listen :8080
+
+# gin (own go.mod so rr stays framework-free)
+cd examples/gin && go test . -v
+cd examples/gin && go run .          # listen :8081
 ```
 
 ## Response envelope
