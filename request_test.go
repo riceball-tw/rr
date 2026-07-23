@@ -85,6 +85,45 @@ func TestSortParams(t *testing.T) {
 		}
 	})
 
+	t.Run("order field desc", func(t *testing.T) {
+		p := SortParams{SortBy: "name", Order: "desc"}
+		if !p.IsDescending() {
+			t.Fatal("expected descending")
+		}
+		if p.GetOrder() != "desc" {
+			t.Fatalf("order = %q", p.GetOrder())
+		}
+	})
+
+	t.Run("order field asc", func(t *testing.T) {
+		p := SortParams{SortBy: "name", Order: "asc"}
+		if p.IsDescending() {
+			t.Fatal("expected ascending")
+		}
+		if p.GetOrder() != "asc" {
+			t.Fatalf("order = %q", p.GetOrder())
+		}
+	})
+
+	t.Run("order field isDesc wins", func(t *testing.T) {
+		p := SortParams{SortBy: "name", IsDesc: true, Order: "asc"}
+		if !p.IsDescending() {
+			t.Fatal("expected descending — isDesc takes priority")
+		}
+		if p.GetOrder() != "desc" {
+			t.Fatalf("order = %q", p.GetOrder())
+		}
+	})
+
+	t.Run("order field variants", func(t *testing.T) {
+		for _, v := range []string{"desc", "DESC", "descending", "d"} {
+			p := SortParams{Order: v}
+			if !p.IsDescending() {
+				t.Fatalf("Order=%q should be descending", v)
+			}
+		}
+	})
+
 	t.Run("allowed field", func(t *testing.T) {
 		p := SortParams{
 			SortBy:        "price",
@@ -157,6 +196,9 @@ func TestParseSort(t *testing.T) {
 		if !p.IsDesc || p.GetOrder() != "desc" {
 			t.Fatalf("%#v", p)
 		}
+		if p.Order != "DESC" {
+			t.Fatalf("Order field = %q, want DESC", p.Order)
+		}
 	})
 
 	t.Run("order=asc", func(t *testing.T) {
@@ -165,6 +207,9 @@ func TestParseSort(t *testing.T) {
 		p := ParseSort(q)
 		if p.IsDesc {
 			t.Fatalf("%#v", p)
+		}
+		if p.Order != "asc" {
+			t.Fatalf("Order field = %q, want asc", p.Order)
 		}
 	})
 }
@@ -198,5 +243,51 @@ func TestListParamsEmbed(t *testing.T) {
 
 	if req.GetPage() != 1 || req.GetSortBy() != "name" || req.Status != "active" {
 		t.Fatalf("%#v", req)
+	}
+}
+
+func TestParsePaginationFromRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/items?page=3&limit=25", nil)
+	p := ParsePaginationFromRequest(req)
+	if p.GetPage() != 3 || p.GetLimit() != 25 {
+		t.Fatalf("page=%d limit=%d", p.GetPage(), p.GetLimit())
+	}
+
+	// empty query falls back to defaults
+	req2 := httptest.NewRequest(http.MethodGet, "/items", nil)
+	p2 := ParsePaginationFromRequest(req2)
+	if p2.GetPage() != 1 || p2.GetLimit() != 10 {
+		t.Fatalf("page=%d limit=%d", p2.GetPage(), p2.GetLimit())
+	}
+}
+
+func TestParseSortFromRequest(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/items?sortBy=name&order=desc", nil)
+	p := ParseSortFromRequest(req)
+	if p.SortBy != "name" || !p.IsDesc {
+		t.Fatalf("%#v", p)
+	}
+
+	// empty query
+	req2 := httptest.NewRequest(http.MethodGet, "/items", nil)
+	p2 := ParseSortFromRequest(req2)
+	if p2.SortBy != "" || p2.IsDesc {
+		t.Fatalf("%#v", p2)
+	}
+}
+
+func TestParseList(t *testing.T) {
+	q := url.Values{}
+	q.Set("page", "2")
+	q.Set("limit", "15")
+	q.Set("sortBy", "price")
+	q.Set("order", "desc")
+
+	list := ParseList(q)
+	if list.GetPage() != 2 || list.GetLimit() != 15 {
+		t.Fatalf("page=%d limit=%d", list.GetPage(), list.GetLimit())
+	}
+	if list.GetSortBy() != "price" || list.GetOrder() != "desc" {
+		t.Fatalf("sortBy=%q order=%q", list.GetSortBy(), list.GetOrder())
 	}
 }

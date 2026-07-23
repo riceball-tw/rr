@@ -196,3 +196,85 @@ func TestHandlerIntegration(t *testing.T) {
 		}
 	})
 }
+
+func TestOKMsg(t *testing.T) {
+	resp := OKMsg("hello", "created")
+	if !resp.Success {
+		t.Fatal("expected success")
+	}
+	if resp.Msg != "created" {
+		t.Fatalf("msg = %q, want created", resp.Msg)
+	}
+	if resp.Data != "hello" {
+		t.Fatalf("data = %q", resp.Data)
+	}
+}
+
+func TestOKMsgMeta(t *testing.T) {
+	meta := NewMeta(1, 10, 25)
+	resp := OKMsgMeta([]string{"a", "b"}, "custom msg", meta)
+
+	if !resp.Success {
+		t.Fatal("expected success")
+	}
+	if resp.Msg != "custom msg" {
+		t.Fatalf("msg = %q", resp.Msg)
+	}
+	if resp.Meta == nil || resp.Meta.TotalCount != 25 {
+		t.Fatal("meta missing or wrong")
+	}
+	if resp.Meta.TotalPages != 3 {
+		t.Fatalf("TotalPages = %d, want 3", resp.Meta.TotalPages)
+	}
+}
+
+func TestFailData(t *testing.T) {
+	resp := FailData(400, "validation error", map[string]string{"field": "name"})
+	if resp.Success {
+		t.Fatal("expected failure")
+	}
+	if resp.Error == nil || resp.Error.Code != 400 || resp.Error.Message != "validation error" {
+		t.Fatalf("error = %#v", resp.Error)
+	}
+	if resp.Data["field"] != "name" {
+		t.Fatalf("data = %#v", resp.Data)
+	}
+}
+
+func TestWriteOKMsg(t *testing.T) {
+	w := httptest.NewRecorder()
+	WriteOKMsg(w, "hello", "created")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+
+	var resp Response[string]
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success || resp.Data != "hello" || resp.Msg != "created" {
+		t.Fatalf("resp = %#v", resp)
+	}
+}
+
+func TestWriteOKMsgMeta(t *testing.T) {
+	w := httptest.NewRecorder()
+	meta := NewMeta(2, 10, 42)
+	WriteOKMsgMeta(w, []string{"a", "b"}, "custom msg", meta)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+
+	var resp Response[[]string]
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.Success || resp.Msg != "custom msg" || resp.Meta == nil || resp.Meta.TotalCount != 42 {
+		t.Fatalf("resp = %#v", resp)
+	}
+	if resp.Meta.TotalPages != 5 {
+		t.Fatalf("TotalPages = %d, want 5", resp.Meta.TotalPages)
+	}
+}
