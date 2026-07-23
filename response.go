@@ -83,6 +83,16 @@ func OKMeta[T any](data T, meta *Meta) Response[T] {
 	}
 }
 
+// OKMsgMeta builds a successful response with a custom message and metadata.
+func OKMsgMeta[T any](data T, msg string, meta *Meta) Response[T] {
+	return Response[T]{
+		Success: true,
+		Msg:     msg,
+		Data:    data,
+		Meta:    meta,
+	}
+}
+
 // Fail builds a failed response with an error payload.
 func Fail(code int, message string) Response[any] {
 	return Response[any]{
@@ -111,10 +121,22 @@ func FailData[T any](code int, message string, data T) Response[T] {
 // ---------------------------------------------------------------------------
 
 // Write encodes resp as JSON with the given HTTP status code.
+//
+// If json.Marshal fails (e.g. circular data, panicking MarshalJSON), it writes
+// a 500 Internal Server Error fallback instead of silently returning a partial
+// or empty body under the original status code.
 func Write[T any](w http.ResponseWriter, status int, resp Response[T]) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(Fail(http.StatusInternalServerError, "response encoding failed"))
+		return
+	}
+
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(resp)
+	w.Write(data)
 }
 
 // WriteOK writes a 200 success response.
@@ -130,6 +152,11 @@ func WriteOKMsg[T any](w http.ResponseWriter, data T, msg string) {
 // WriteOKMeta writes a 200 success response with metadata.
 func WriteOKMeta[T any](w http.ResponseWriter, data T, meta *Meta) {
 	Write(w, http.StatusOK, OKMeta(data, meta))
+}
+
+// WriteOKMsgMeta writes a 200 success response with a custom message and metadata.
+func WriteOKMsgMeta[T any](w http.ResponseWriter, data T, msg string, meta *Meta) {
+	Write(w, http.StatusOK, OKMsgMeta(data, msg, meta))
 }
 
 // WriteError writes a failed response with the given HTTP status and error body.

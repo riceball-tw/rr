@@ -92,6 +92,9 @@ type SortParams struct {
 	SortBy string `form:"sortBy" json:"sortBy" query:"sortBy"`
 	// IsDesc requests descending order when true.
 	IsDesc bool `form:"isDesc" json:"isDesc" query:"isDesc"`
+	// Order is an alternative to IsDesc: "asc", "desc", "descending", or "d".
+	// Used by struct-binding frameworks (gin, echo) which read query tags.
+	Order string `form:"order" json:"order" query:"order"`
 	// AllowedSortBy restricts SortBy to a whitelist. Empty = allow any.
 	AllowedSortBy []string `form:"-" json:"-" query:"-"`
 	// DefaultSortBy is used when SortBy is empty or not allowed.
@@ -126,12 +129,27 @@ func (p *SortParams) GetOrder() string {
 	if p.IsDesc {
 		return "desc"
 	}
+	if p.Order != "" {
+		switch strings.ToLower(strings.TrimSpace(p.Order)) {
+		case "desc", "descending", "d":
+			return "desc"
+		}
+	}
 	return "asc"
 }
 
 // IsDescending reports whether sort order is descending.
 func (p *SortParams) IsDescending() bool {
-	return p.IsDesc
+	if p.IsDesc {
+		return true
+	}
+	if p.Order != "" {
+		switch strings.ToLower(strings.TrimSpace(p.Order)) {
+		case "desc", "descending", "d":
+			return true
+		}
+	}
+	return false
 }
 
 // ListParams combines pagination and sorting for typical list endpoints.
@@ -160,6 +178,7 @@ func ParsePagination(q url.Values) PaginationParams {
 func ParseSort(q url.Values) SortParams {
 	p := SortParams{
 		SortBy: strings.TrimSpace(q.Get(Config.SortByKey)),
+		Order:  strings.TrimSpace(q.Get(Config.OrderKey)),
 	}
 
 	if raw := q.Get(Config.IsDescKey); raw != "" {
