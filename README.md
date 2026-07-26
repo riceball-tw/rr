@@ -9,65 +9,82 @@ Small, zero dependencies, framework-agnostic package for HTTP request parsing an
 ## Before vs after
 
 ```go
-// Without rr — 30+ lines of manual parsing, bounds checking, and response building
+// Without rr — 45+ lines of manual parsing, bounds checking, error handling, and response building
 func handleListUsers(w http.ResponseWriter, r *http.Request) {
     page := 1
     if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
         page = p
     }
+
     limit := 10
     if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil {
         if l > 100 { l = 100 }
         limit = l
     }
+
     sortBy := r.URL.Query().Get("sortBy")
     order := r.URL.Query().Get("order")
     isDesc := strings.ToLower(order) == "desc"
 
     allowedSorts := []string{"name", "created_at"}
     sortValid := false
-    for _, s := range allowedSorts { if s == sortBy { sortValid = true; break } }
+    for _, s := range allowedSorts {
+        if s == sortBy { sortValid = true; break }
+    }
     if !sortValid { sortBy = "created_at" }
 
-    users, total := service.List((page-1)*limit, limit, sortBy, isDesc)
+    offset := (page - 1) * limit
+    users, total, err := service.List(r.Context(), offset, limit, sortBy, isDesc)
+    if err != nil {
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        w.WriteHeader(http.StatusInternalServerError)
+        json.NewEncoder(w).Encode(map[string]interface{}{
+            "success": false,
+            "error":   map[string]interface{}{"code": 500, "message": "internal error"},
+        })
+        return
+    }
+
+    totalPages := int((total + int64(limit) - 1) / int64(limit))
+    w.Header().Set("Content-Type", "application/json; charset=utf-8")
     json.NewEncoder(w).Encode(map[string]interface{}{
         "success": true, "msg": "ok", "data": users,
         "meta": map[string]interface{}{
             "page": page, "per_page": limit,
-            "total_count": total, "total_pages": int((total+int64(limit)-1)/int64(limit)),
+            "total_count": total, "total_pages": totalPages,
         },
     })
 }
 ```
 
 ```go
-// net/http With rr — 4 lines
+// net/http With rr — 10 lines
 func handleListUsers(w http.ResponseWriter, r *http.Request) {
     list := rr.ParseListFromRequest(r)
+    sortP := list.SortParams.WithAllowedSort([]string{"name", "created_at"}, "created_at")
 
-    users, total := service.List(
-        list.GetOffset(), 
-        list.GetLimit(), 
-        list.GetSortBy(), 
-        list.IsDescending()
-    )
-    
-    rr.WriteOKMeta(w, users, 
-    rr.NewMeta(
-        list.GetPage(), 
-        list.GetLimit(), 
-        total
-        )
-    )
+    users, total, err := service.List(r.Context(), list.GetOffset(), list.GetLimit(), sortP.GetSortBy(), sortP.IsDescending())
+    if err != nil {
+        rr.InternalError(w, "internal error")
+        return
+    }
+
+    rr.WriteOKMeta(w, users, rr.NewMeta(list.GetPage(), list.GetLimit(), total))
 }
 ```
 
-
 ```go
-// Gin With rr — 3 lines
+// Gin With rr — 10 lines
 func handleListUsers(c *gin.Context) {
     list := rr.ParseListFromRequest(c.Request)
-    users, total := service.List(list.GetOffset(), list.GetLimit(), list.GetSortBy(), list.IsDescending())
+    sortP := list.SortParams.WithAllowedSort([]string{"name", "created_at"}, "created_at")
+
+    users, total, err := service.List(c.Request.Context(), list.GetOffset(), list.GetLimit(), sortP.GetSortBy(), sortP.IsDescending())
+    if err != nil {
+        rr.InternalError(c.Writer, "internal error")
+        return
+    }
+
     rr.WriteOKMeta(c.Writer, users, rr.NewMeta(list.GetPage(), list.GetLimit(), total))
 }
 ```
