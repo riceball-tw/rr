@@ -114,6 +114,7 @@ go get github.com/riceball-tw/rr
 - **Marshal safe.** If `json.Marshal` panics, `rr` writes a proper 500 instead of a truncated body.
 - **Framework agnostic.** Works with `net/http`, `chi`, `gin`, `echo`, `fiber` (via adaptor), and anything accepting `http.ResponseWriter`.
 - **Zero dependencies.** Stdlib only.
+- **Agent ready.** Ships a Claude Code skill so AI-written handlers match the intended patterns — see [Use with Claude Code](#use-with-claude-code).
 
 ## Response format
 
@@ -137,12 +138,28 @@ Error responses use `"success": false` and an `error` object:
 
 ## Defaults
 
+Page size defaults to 10 and is capped at 100. Override at startup:
+
 ```go
 rr.Config.DefaultLimit = 20  // default page size
-rr.Config.MaxLimit = 100     // hard cap
+rr.Config.MaxLimit = 500     // hard cap
 ```
 
-Query parameters parsed: `page`, `limit`, `sortBy`, `isDesc`, `order`.
+Query parameters parsed: `page`, `limit`, `sortBy`, `isDesc`, `order`. Their names are configurable too (`rr.Config.SortByKey = "sort_by"`).
+
+## Use with Claude Code
+
+rr ships an [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) so Claude writes rr handlers correctly instead of guessing: the canonical list-handler shape, framework recipes for net/http, gin, echo and fiber, and the sharp edges — `omitempty` dropping the `data` key on empty pages, pointer-receiver getters that can't be chained, `With*` returning copies.
+
+Install it into any project that imports rr:
+
+```bash
+mkdir -p .claude/skills/rr
+curl -sL -o .claude/skills/rr/SKILL.md     https://raw.githubusercontent.com/riceball-tw/rr/main/.claude/skills/rr/SKILL.md
+curl -sL -o .claude/skills/rr/reference.md https://raw.githubusercontent.com/riceball-tw/rr/main/.claude/skills/rr/reference.md
+```
+
+Claude picks it up automatically when a task touches list endpoints or JSON responses. Use `~/.claude/skills/rr/` instead to install it for every project.
 
 ## Development
 
@@ -150,7 +167,7 @@ Query parameters parsed: `page`, `limit`, `sortBy`, `isDesc`, `order`.
 go test ./...
 ```
 
-Runnable examples in `examples/nethttp` and `examples/gin`.
+Runnable examples in `examples/nethttp` and `examples/gin`. The Claude Code skill lives in `.claude/skills/rr/`.
 
 ## License
 
