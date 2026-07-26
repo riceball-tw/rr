@@ -114,7 +114,7 @@ go get github.com/riceball-tw/rr
 - **Marshal safe.** If `json.Marshal` panics, `rr` writes a proper 500 instead of a truncated body.
 - **Framework agnostic.** Works with `net/http`, `chi`, `gin`, `echo`, `fiber` (via adaptor), and anything accepting `http.ResponseWriter`.
 - **Zero dependencies.** Stdlib only.
-- **Agent ready.** Ships a Claude Code skill so AI-written handlers match the intended patterns — see [Use with Claude Code](#use-with-claude-code).
+- **Agent ready.** Ships an [Agent Skill](https://agentskills.io/) so AI-written handlers match the intended patterns — see [Use with AI agents](#use-with-ai-agents).
 
 ## Response format
 
@@ -147,11 +147,39 @@ rr.Config.MaxLimit = 500     // hard cap
 
 Query parameters parsed: `page`, `limit`, `sortBy`, `isDesc`, `order`. Their names are configurable too (`rr.Config.SortByKey = "sort_by"`).
 
-## Use with Claude Code
+## Use with AI agents
 
-rr ships an [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) so Claude writes rr handlers correctly instead of guessing: the canonical list-handler shape, framework recipes for net/http, gin, echo and fiber, and the sharp edges — `omitempty` dropping the `data` key on empty pages, pointer-receiver getters that can't be chained, `With*` returning copies.
+rr ships an [Agent Skill](https://agentskills.io/) (same open format used by [Vercel agent-skills](https://github.com/vercel-labs/agent-skills) and the [`skills`](https://github.com/vercel-labs/skills) CLI). It teaches agents the canonical list-handler shape, framework recipes for net/http, gin, echo and fiber, and the sharp edges — `omitempty` dropping the `data` key on empty pages, pointer-receiver getters that can't be chained, `With*` returning copies.
 
-Install it into any project that imports rr:
+The skill lives in this repo (`.claude/skills/rr/`). It is **not** part of the [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) collection; install it from `riceball-tw/rr` with Vercel's skills CLI.
+
+### Install with the skills CLI (recommended)
+
+Works with Claude Code, Cursor, Codex, OpenCode, and [other supported agents](https://github.com/vercel-labs/skills#supported-agents):
+
+```bash
+# Interactive — pick agents when prompted
+npx skills add riceball-tw/rr
+
+# Non-interactive — install the rr skill only
+npx skills add riceball-tw/rr --skill rr -y
+
+# Global (every project on this machine)
+npx skills add riceball-tw/rr --skill rr -g -y
+
+# Specific agents only
+npx skills add riceball-tw/rr --skill rr -a claude-code -a cursor -a codex -y
+```
+
+List what the CLI finds before installing:
+
+```bash
+npx skills add riceball-tw/rr --list
+```
+
+After install, agents pick the skill up automatically when a task touches list endpoints or JSON responses.
+
+### Manual install (Claude Code only)
 
 ```bash
 mkdir -p .claude/skills/rr
@@ -159,7 +187,7 @@ curl -sL -o .claude/skills/rr/SKILL.md     https://raw.githubusercontent.com/ric
 curl -sL -o .claude/skills/rr/reference.md https://raw.githubusercontent.com/riceball-tw/rr/main/.claude/skills/rr/reference.md
 ```
 
-Claude picks it up automatically when a task touches list endpoints or JSON responses. Use `~/.claude/skills/rr/` instead to install it for every project.
+Use `~/.claude/skills/rr/` instead to install it for every project.
 
 ## Development
 
@@ -167,7 +195,7 @@ Claude picks it up automatically when a task touches list endpoints or JSON resp
 go test ./...
 ```
 
-Runnable examples in `examples/nethttp` and `examples/gin`. The Claude Code skill lives in `.claude/skills/rr/`.
+Runnable examples in `examples/nethttp` and `examples/gin`. The agent skill lives in `.claude/skills/rr/`.
 
 ## License
 
