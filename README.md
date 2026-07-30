@@ -1,3 +1,8 @@
+
+<p>
+  <img src="./logo.png" alt="rr logo">
+</p>
+
 # rr
 
 Small, zero dependencies, framework-agnostic package for HTTP request parsing and consistent JSON responses. rr handles the boilerplate every endpoint repeats:
