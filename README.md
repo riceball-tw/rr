@@ -1,6 +1,6 @@
 
 <p>
-  <img src="./icon.png" alt="rr logo">
+  <img src="./logo.png" alt="rr logo">
 </p>
 
 # rr
